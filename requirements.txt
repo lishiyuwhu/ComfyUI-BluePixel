@@ -1,0 +1,7 @@
+torch>=2.1.0
+diffusers>=0.36.0,<0.37.0
+transformers>=4.57.1,<5
+peft
+pillow>=9.0.0
+numpy
+safetensors>=0.4.0

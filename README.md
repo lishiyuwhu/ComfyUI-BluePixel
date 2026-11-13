@@ -1,92 +1,116 @@
 # ComfyUI BluePixel
 
+[BluePixel-Turbo](https://huggingface.co/openvivo/BluePixel-Turbo)（基于 Flux2-Klein + DCAE 的 4K 图像编辑蒸馏模型）的 ComfyUI 节点插件。
 
+第一版提供两个节点，保留 `vins_infer.py` 推理语义，并接入 ComfyUI 的模型托管、进度与取消机制：
 
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.vmic.xyz/vins/ComfyUI-BluePixel.git
-git branch -M master
-git push -uf origin master
+```text
+BluePixel Pipeline Loader ── BLUEPIXEL_PIPE ──┐
+                                              ├─ BluePixel Generate ─ IMAGE ─ Save/Preview Image
+        Load Image ────────────── IMAGE ──────┘
 ```
 
-## Integrate with your tools
+**BluePixel 是纯图像编辑模型**：`image` 输入为必选，不支持文生图（t2i）。
 
-- [ ] [Set up project integrations](https://gitlab.vmic.xyz/vins/ComfyUI-BluePixel/-/settings/integrations)
+## 安装
 
-## Collaborate with your team
+```bash
+# ComfyUI/custom_nodes 下
+git clone <this repo> ComfyUI-BluePixel
+cd ComfyUI-BluePixel
+pip install -r requirements.txt
+```
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+## 模型
 
-## Test and Deploy
+将 BluePixel-Turbo（diffusers 布局：`transformer/ vae/ text_encoder/ tokenizer/ scheduler/`）放到：
 
-Use the built-in continuous integration in GitLab.
+```
+ComfyUI/models/bluepixel/BluePixel-Turbo/
+```
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+支持 `extra_model_paths.yaml` 注册的目录。加载为本地读取，不联网下载；加载前校验目录结构、分片索引与配置（`in_channels=128`、`scaling_factor`）。
 
-***
+## 节点
 
-# Editing this README
+### BluePixel Pipeline Loader
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
+| 参数 | 说明 |
+| --- | --- |
+| model_name | `ComfyUI/models/bluepixel/` 下的模型目录（FP32 或 INT8，自动识别） |
+| base_model_name | INT8 模型时指向 FP32 目录（vae/text_encoder/tokenizer/scheduler 来自这里）；FP32 模型填自身即可 |
+| precision | `bf16`（基线）/ `fp16` / `fp32`；作用于 Qwen3 与 latent dtype，DiT/DCAE 固定 fp32 |
+| int8_compute_dtype | INT8 transformer 的计算精度：`fp32`（推荐）/ `bf16` |
+| vae_tiling | 默认**关闭**（与参考 CLI 一致，保证像素对齐）；显存不足时可开启 |
+| reload_token | 非空时绕过缓存强制重载同路径模型 |
 
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+**INT8 自动识别**：若 `<model>/transformer/config.json` 含 `quantization_config`，则用
+`Int8Linear`（weight-only int8 + per-output-channel scale）构建 transformer，共 153 层；
+其余组件从 `base_model_name` 读取。INT8 显存约 20GB（FP32 约 47GB）。
 
-## Name
-Choose a self-explaining name for your project.
+输出 `BLUEPIXEL_PIPE`：ComfyUI ModelPatcher 托管的 DiT/Qwen3/DCAE + tokenizer + 配置指纹。
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+### BluePixel Generate
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+| 参数 | 说明 |
+| --- | --- |
+| image | **必选**，待编辑图像 |
+| prompt | 编辑指令 |
+| seed | 随机种子（同时作为全局 RNG 种子，保证 CPS 噪声可复现） |
+| steps | 去噪步数，默认 4（上限 4，对应 denoising list `[1000,750,500,250]`） |
+| cps_eta | CPS 随机性 0–1，默认 0.9（0 = 确定性 Euler） |
+| mu_mode | `training`（默认，seq-len 上限 4096）/ `empirical` |
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+**无 CFG**：蒸馏 checkpoint 固定 `guidance=None` 单次前向，每步只跑一次 transformer。
+（旧版插件的 guidance/shift 参数已移除。）
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+**输出尺寸：bucket 系统（4K 面积预算，节点内固定）**
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+- 16 个预设宽高比（1:1, 1:4, 1:8, 2:3, 3:2, 3:4, 4:1, 4:3, 4:5, 5:4, 8:1, 9:16, 16:9, 21:9→7:3），
+  面积预算 4096×4096 = 16.78M 像素，边长按 64 向下取整
+- 按输入图像宽高比的**对数距离**选择最接近的 bucket（与参考 CLI 完全一致）
+- **小图自动放大**：参考图用 BICUBIC 等比放大 + 中心裁剪到 bucket 尺寸
+- 大图自动缩小
+- 实际输出写入 metadata_json：`width`/`height`/`bucket_ratio`/`bucket_id`/`image_seq_len`
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+输出：标准 `IMAGE`（CPU float32 BHWC，[0,1]）+ `metadata_json`（尺寸、mu、seq_len、seed、模型指纹等）。
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Batch IMAGE 逐张顺序处理（每张派生 seed = base_seed + index）。每步执行/长阶段检查 ComfyUI 取消（Cancel）。
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+## 数值对齐（已验证）
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+与参考实现 `bluepixel/vins_infer.py`（FluxKleinPipeline）真实权重逐阶段对齐（详见 `VERIFICATION.md`）：
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+- prompt embeds / text ids / 参考图 latent / 初始噪声：bit-exact
+- sigma 序列：与 diffusers 调度器 bit-exact
+- 4 步 4 次 transformer forward（无 CFG）：bit-exact（`v_pred` rel_l2 = 0）
+- 同进程最终图像 PSNR 138 dB（逐位一致）
+- INT8 与 FP32 两条路径均已验证；插件输出与参考 CLI 的差异仅来自
+  ComfyUI `LoadImage` 用 pyav 解码 JPEG（CLI 用 PIL），在相同输入像素下逐位一致
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+## 测试
 
-## License
-For open source projects, say how it is licensed.
+```bash
+# CPU 单元测试（无需模型权重）
+python -m pytest bluepixel_comfyui/tests/unit -q
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+# GPU 冒烟（需真实权重）
+python bluepixel_comfyui/tests/gpu/test_real_weights.py \
+    --model-dir /path/to/BluePixel-Turbo
+
+# 参考实现逐阶段对齐（需真实权重 + /root/code/bluepixel）
+python bluepixel_comfyui/tests/gpu/test_reference_parity.py \
+    --model-dir /path/to/BluePixel-Turbo
+```
+
+## 已知边界
+
+- 首版不承诺通用 MODEL/CLIP/VAE/LATENT、KSampler、LoRA、FP8/GGUF 兼容
+- FP32 实测约 47GB、INT8 约 20GB 常驻；lowvram 逐层流式加载依赖 ComfyUI ModelPatcher，未在低显存卡上验证
+- Qwen3 文本编码器常驻约 16 GB（bf16）；显存不足时 ComfyUI 会自动卸载再加载
+- 输出尺寸由 bucket 决定，不支持任意分辨率；需要其他比例请改 bucket 逻辑
+- 参考图先按 target_pixels 缩放再走 64 网格搜索（vins 语义）；输出最小 64px、最大 8192px
+
+## 许可
+
+代码遵循上游仓库许可；模型权重遵循 OpenAtom Model License（见上游 BluePixel 仓库）。

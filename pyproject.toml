@@ -1,0 +1,19 @@
+[project]
+name = "comfyui-bluepixel"
+version = "0.1.0"
+description = "BluePixel-Turbo (Flux2-Klein + DCAE) nodes for ComfyUI"
+requires-python = ">=3.10"
+dependencies = [
+    "torch>=2.1.0",
+    "diffusers>=0.36.0,<0.37.0",
+    "transformers>=4.57.1,<5",
+    "peft",
+    "pillow>=9.0.0",
+    "numpy",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["bluepixel_comfyui/tests"]
