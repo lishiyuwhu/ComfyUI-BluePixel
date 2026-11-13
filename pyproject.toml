@@ -11,7 +11,7 @@ classifiers = [
 ]
 
 [project.urls]
-Repository = "https://gitlab.vmic.xyz/vins/ComfyUI-BluePixel"
+Repository = "https://github.com/lishiyuwhu/ComfyUI-BluePixel"
 
 [project.optional-dependencies]
 test = ["pytest>=8.0"]
@@ -20,7 +20,7 @@ test = ["pytest>=8.0"]
 dependencies = { file = ["requirements.txt"] }
 
 [tool.comfy]
-PublisherId = "__PUBLISHER_ID__"
+PublisherId = "lishiyu"
 DisplayName = "BluePixel"
 requires-comfyui = ">=0.3.60"
 
@@ -28,6 +28,6 @@ requires-comfyui = ">=0.3.60"
 # rootdir must not be collected as a package: the repo root doubles as the
 # ComfyUI custom-node package (relative imports in __init__.py).
 testpaths = ["bluepixel_tests/unit"]
-norecursedirs = ["core", "runtime", "examples", "workflows", ".git"]
+norecursedirs = ["core", "runtime", "workflows", ".git"]
 addopts = "--import-mode=importlib"
 consider_namespace_packages = false
