@@ -5,9 +5,9 @@ import sys
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from bluepixel_comfyui.runtime import loader as loader_mod
+from runtime import loader as loader_mod
 
 
 @pytest.fixture()

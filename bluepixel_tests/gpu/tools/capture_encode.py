@@ -6,7 +6,7 @@ from pathlib import Path
 
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, "/root/code/bluepixel")
 
 from PIL import Image
@@ -68,8 +68,8 @@ def encode_capture2(x, *a, **kw):
 
 vae.encode = encode_capture2
 
-from bluepixel_comfyui.core.image_processing import pil_to_comfy_image
-from bluepixel_comfyui.core.pipeline import run_bluepixel
+from core.image_processing import pil_to_comfy_image
+from core.pipeline import run_bluepixel
 
 our_img = pil_to_comfy_image(img)
 run_bluepixel(transformer=transformer, vae=vae, text_encoder=text_encoder,

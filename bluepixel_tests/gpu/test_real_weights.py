@@ -1,7 +1,7 @@
 """GPU smoke test with real BluePixel-Turbo weights.
 
 Run inside the ComfyUI python env:
-    python bluepixel_comfyui/tests/gpu/test_real_weights.py \
+    python tests/gpu/test_real_weights.py \
         --model-dir /path/to/BluePixel-Turbo
 
 Checks:
@@ -19,14 +19,14 @@ from pathlib import Path
 
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from bluepixel_comfyui.core import latents as latents_mod
-from bluepixel_comfyui.core import scheduler as sched_mod
-from bluepixel_comfyui.core.helpers import compute_empirical_mu
-from bluepixel_comfyui.core.pipeline import run_bluepixel
-from bluepixel_comfyui.core.image_processing import pil_to_comfy_image
-from bluepixel_comfyui.runtime import loader as loader_mod
+from core import latents as latents_mod
+from core import scheduler as sched_mod
+from core.helpers import compute_empirical_mu
+from core.pipeline import run_bluepixel
+from core.image_processing import pil_to_comfy_image
+from runtime import loader as loader_mod
 
 
 def main() -> int:
@@ -79,7 +79,7 @@ def main() -> int:
     print(f"[4] vae loaded {time.time()-t0:.1f}s, scaling_factor={scaling}")
 
     # --- text encode
-    from bluepixel_comfyui.core.prompt import encode_prompt_bluepixel
+    from core.prompt import encode_prompt_bluepixel
     pe, ti = encode_prompt_bluepixel(text_encoder, tokenizer, args.prompt, device)
     assert pe.shape == (1, 512, 12288), pe.shape
     assert ti.shape == (1, 512, 4), ti.shape
@@ -134,7 +134,7 @@ def main() -> int:
 
     out_dir = Path("/tmp/bluecode/bluepixel_smoke")
     out_dir.mkdir(parents=True, exist_ok=True)
-    from bluepixel_comfyui.core.image_processing import tensor_to_pil
+    from core.image_processing import tensor_to_pil
     tensor_to_pil(comfy_image_to_tensor_rev(out)).save(out_dir / "out.jpg")
     print(f"[10] saved {out_dir/'out.jpg'}")
     return 0 if same else 2

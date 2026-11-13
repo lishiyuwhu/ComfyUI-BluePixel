@@ -8,7 +8,7 @@ Compares, for identical seed / prompt / image / steps / guidance / mu_mode:
   5. final images           (PSNR / max abs diff)
 
 Run:
-    python bluepixel_comfyui/tests/gpu/test_reference_parity.py \
+    python tests/gpu/test_reference_parity.py \
         --model-dir /path/to/BluePixel-Turbo
 """
 import argparse
@@ -21,16 +21,16 @@ from pathlib import Path
 import numpy as np
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 REF_REPO = "/root/code/bluepixel"
 if REF_REPO not in sys.path:
     sys.path.insert(0, REF_REPO)
 
-from bluepixel_comfyui.core import scheduler as sched_mod
-from bluepixel_comfyui.core.helpers import compute_empirical_mu
-from bluepixel_comfyui.core.image_processing import pil_to_comfy_image
-from bluepixel_comfyui.core.pipeline import run_bluepixel
+from core import scheduler as sched_mod
+from core.helpers import compute_empirical_mu
+from core.image_processing import pil_to_comfy_image
+from core.pipeline import run_bluepixel
 
 
 def rel_l2(a, b):

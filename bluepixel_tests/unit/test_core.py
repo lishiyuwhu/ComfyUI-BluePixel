@@ -8,11 +8,11 @@ import numpy as np
 import pytest
 import torch
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from bluepixel_comfyui.core import buckets as bucket_mod
-from bluepixel_comfyui.core import scheduler as sched_mod
-from bluepixel_comfyui.core.int8_linear import (
+from core import buckets as bucket_mod
+from core import scheduler as sched_mod
+from core.int8_linear import (
     Int8Linear,
     read_quantization_config,
     is_int8_model_dir,

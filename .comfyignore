@@ -1,0 +1,11 @@
+# Development / CI only — these stay in git but are excluded from the
+# published registry archive.
+bluepixel_tests/
+tests/
+COMFYUI_INTEGRATION_PLAN.md
+VERIFICATION.md
+.gitlab-ci.yml
+.github/
+.pytest_cache/
+__pycache__/
+*.py[cod]

@@ -8,22 +8,22 @@ import sys
 import pytest
 import torch
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from bluepixel_comfyui.core.buckets import (
+from core.buckets import (
     ResolutionBucketSet,
     pack_flux2_latents,
     unpack_flux2_latents,
     _prepare_latent_ids,
     _build_ref_image_ids_dcae,
 )
-from bluepixel_comfyui.core.image_processing import (
+from core.image_processing import (
     comfy_image_to_tensor,
     tensor_to_comfy_image,
     tensor_to_pil,
 )
-from bluepixel_comfyui.core.pipeline import BluePixelEngine
-from bluepixel_comfyui.core.scheduler import CPSScheduler
+from core.pipeline import BluePixelEngine
+from core.scheduler import CPSScheduler
 
 
 class _Cfg:

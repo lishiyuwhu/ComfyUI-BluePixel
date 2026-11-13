@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, "/root/code/bluepixel")
 
 from PIL import Image
@@ -38,7 +38,7 @@ def rel(a, b):
 import vins_infer as ref
 ref_pe, ref_ti = ref.embedding_prompt(PROMPT, text_encoder, tokenizer, DEVICE)
 
-from bluepixel_comfyui.core.prompt import encode_prompt_bluepixel
+from core.prompt import encode_prompt_bluepixel
 our_pe, our_ti = encode_prompt_bluepixel(text_encoder, tokenizer, PROMPT, DEVICE)
 print(f"prompt embeds rel={rel(our_pe, ref_pe):.3e}  shape {tuple(our_pe.shape)}")
 print(f"text ids equal: {torch.equal(our_ti, ref_ti)}")
@@ -67,7 +67,7 @@ proc = Flux2ImageProcessor(vae_scale_factor=128)
 ref_cond = proc.preprocess(img_r, height=h2, width=w2).to(DEVICE, torch.float32)
 
 # our path
-from bluepixel_comfyui.core import latents as L
+from core import latents as L
 our_cond, _ = L.resize_condition_image(img, target_pixels=1 << 20)
 our_cond = our_cond.to(DEVICE, torch.float32)
 print(f"cond tensor: ref {tuple(ref_cond.shape)} ours {tuple(our_cond.shape)} "
@@ -111,7 +111,7 @@ with torch.no_grad():
 print(f"transformer self-consistency rel={rel(out_ref2, out_ref):.3e}")
 
 # our core with identical inputs
-import bluepixel_comfyui.core.pipeline as P
+import core.pipeline as P
 inputs = dict(hidden_states=x, timestep=timestep, guidance=guidance,
               encoder_hidden_states=ref_pe, txt_ids=ids_ref, img_ids=x_ids)
 with torch.no_grad():

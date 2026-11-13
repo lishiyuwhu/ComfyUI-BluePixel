@@ -1,19 +1,33 @@
 [project]
-name = "comfyui-bluepixel"
+name = "bluepixel-comfyui"
 version = "0.1.0"
-description = "BluePixel-Turbo (Flux2-Klein + DCAE) nodes for ComfyUI"
-requires-python = ">=3.10"
-dependencies = [
-    "torch>=2.1.0",
-    "diffusers>=0.36.0,<0.37.0",
-    "transformers>=4.57.1,<5",
-    "peft",
-    "pillow>=9.0.0",
-    "numpy",
+description = "BluePixel-Turbo image editing nodes: 4-step distilled Flux2-Klein + DCAE at a 4K bucket area, with FP32 and INT8 transformer support."
+license = { file = "LICENSE" }
+requires-python = ">=3.10,<3.13"
+dynamic = ["dependencies"]
+classifiers = [
+    "Operating System :: OS Independent",
+    "Environment :: GPU :: NVIDIA CUDA",
 ]
+
+[project.urls]
+Repository = "https://gitlab.vmic.xyz/vins/ComfyUI-BluePixel"
 
 [project.optional-dependencies]
 test = ["pytest>=8.0"]
 
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.comfy]
+PublisherId = "__PUBLISHER_ID__"
+DisplayName = "BluePixel"
+requires-comfyui = ">=0.3.60"
+
 [tool.pytest.ini_options]
-testpaths = ["bluepixel_comfyui/tests"]
+# rootdir must not be collected as a package: the repo root doubles as the
+# ComfyUI custom-node package (relative imports in __init__.py).
+testpaths = ["bluepixel_tests/unit"]
+norecursedirs = ["core", "runtime", "examples", "workflows", ".git"]
+addopts = "--import-mode=importlib"
+consider_namespace_packages = false

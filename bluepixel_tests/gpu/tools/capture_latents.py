@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, "/root/code/bluepixel")
 
 from PIL import Image
@@ -56,9 +56,9 @@ text_encoder = Qwen3ForCausalLM.from_pretrained(
 tokenizer = Qwen2TokenizerFast.from_pretrained(MODEL, subfolder="tokenizer")
 vae = AutoencoderDC.from_pretrained(MODEL, subfolder="vae", torch_dtype=torch.float32).to(DEVICE).eval()
 
-from bluepixel_comfyui.core.image_processing import pil_to_comfy_image
-from bluepixel_comfyui.core import scheduler as sched_mod
-from bluepixel_comfyui.core.pipeline import run_bluepixel
+from core.image_processing import pil_to_comfy_image
+from core import scheduler as sched_mod
+from core.pipeline import run_bluepixel
 
 our_lat, our_pred = [], []
 orig_euler = sched_mod.euler_update
