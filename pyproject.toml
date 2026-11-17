@@ -1,6 +1,6 @@
 [project]
 name = "bluepixel-comfyui"
-version = "0.1.1"
+version = "0.1.2"
 description = "BluePixel-Turbo image editing nodes: 4-step distilled Flux2-Klein + DCAE at a 4K bucket area, with FP32 and INT8 transformer support."
 license = { file = "LICENSE" }
 requires-python = ">=3.10,<3.13"

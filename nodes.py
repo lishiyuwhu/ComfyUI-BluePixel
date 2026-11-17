@@ -143,10 +143,14 @@ class BluePixelGenerate:
             want = stage_owner[stage]
             if resident["name"] == want:
                 return
-            load_patcher_gpu([patchers[want]])
+            # Evict the previous component BEFORE loading the next one, so the
+            # two never coexist on the GPU. Loading first and unloading after
+            # lets both be resident at once, which is what pushes the 4K peak
+            # up to ~24GB (Qwen3 + DCAE during the encode hand-off).
             prev = resident["name"]
             if prev is not None and prev != want:
                 unload_patcher(patchers[prev])
+            load_patcher_gpu([patchers[want]])
             resident["name"] = want
 
         engine = BluePixelEngine(
