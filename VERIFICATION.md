@@ -99,6 +99,20 @@ transformers 4.57.1, GPU 96GB（CUDA sm86, 单卡）。
 | 数值对齐 | **单进程 stage diff**：vins_infer BluePixelPipeline 与插件 engine 共用同一组权重，4 步 v_pred 全部 `rel_l2 = 0.000e+00`，最终图像 PSNR 138 dB（逐位一致） |
 | 跨进程差异说明 | 插件经 ComfyUI `LoadImage` 取图（pyav 解码 JPEG），参考 CLI 用 PIL 解码：同一 JPEG 的像素差异 max 24 / mean 0.58，导致端到端 mean≈1.19。已单独验证：把 pyav 解码后的像素喂给插件离线重建，与线上 ComfyUI 输出**逐位一致**（PSNR 138 dB），证明算法移植无偏差 |
 
+## 显存修复：分阶段加载 + VAE 切块（G8）
+
+| 字段 | 内容 |
+| --- | --- |
+| 测试 ID | G8-lowvram-staged |
+| 状态 / 日期 | 通过 / 2026-11-17 |
+| 背景 | 用户实测 INT8 4K 峰值 ~40GB，与本地脚本 ~20GB 不符，怀疑加载器把 int8 转成 bf16/fp32 |
+| 排查结论 | 加载器无问题：transformer buffers 为 `torch.int8` 9.08GB + fp32 scale 0.01GB，`Int8Linear.weight.dtype == torch.int8`。峰值高是三个组件同时常驻 + 4K VAE 编码未切块 |
+| 实测分解 | Qwen3 16.4GB / DCAE 2.7GB / INT8 DiT 9.1GB；4K VAE encode 不切块 +21.6GB、切块 +0.34GB；DiT forward +3.5GB；文本编码 +1.6GB |
+| 参考 CLI 同配置 | 4K INT8 不切块峰值 49.8GB（与节点修复前一致，说明当时无额外泄漏） |
+| 修复 | ①`core/pipeline.py` 增加 `stage_cb`（text_encode/image_encode/denoise/decode）②`nodes.py` 按阶段加载并在切换时卸载，结束释放 ③`unload_patcher` 改为通过 ComfyUI `current_loaded_models` 注册表驱逐（`is_clone` 匹配），否则注册表残留导致权重不释放 ④`vae_tiling` 默认改回 True |
+| 预期与实测 | 4K INT8 峰值 **49.8 → 20.3GB**；运行后残留 **29.4 → 1.1GB**（释放 19.2GB）；耗时 30s → 63s（多 3 次权重搬运）；53 个单测通过 |
+| 发现的环境问题 | 用户此前通过 Manager 安装的是 `custom_nodes/bluepixel-comfyui/`（Registry 0.1.0 独立副本），本地修改不生效；已删除副本改回软链 |
+
 ## 说明与边界
 
 - 参考图人脸 artifact（768x1280 / 4 步 / seed 42）：参考 pipeline 输出同图（G2 保存 `ref.jpg`/`ours.jpg` 对照），属模型在该分辨率/步数下的自身行为，非移植缺陷。

@@ -147,11 +147,40 @@ def load_patcher_gpu(patchers) -> None:
 
 
 def unload_patcher(patcher) -> None:
+    """Evict a patcher from the GPU.
+
+    ComfyUI tracks loaded models in `current_loaded_models`, and the patcher's
+    weights are only released through that registry's LoadedModel.model_unload().
+    Calling patcher.model_unload() directly leaves the registry stale, so the
+    weights stay resident until something else forces a reload.
+    """
     if COMFY_AVAILABLE:
+        released = False
         try:
-            patcher.model_unload(unpatch_weights=True)
+            mm = comfy.model_management
+            # Identity match can fail because ComfyUI may hold a clone/parent
+            # reference; fall back to is_clone() like load_models_gpu does.
+            for loaded in list(mm.current_loaded_models):
+                same = loaded.model is patcher
+                if not same:
+                    try:
+                        same = patcher.is_clone(loaded.model)
+                    except Exception:
+                        same = False
+                if same:
+                    if loaded.model_unload():
+                        mm.current_loaded_models.remove(loaded)
+                        released = True
+                    break
         except Exception:
-            logger.warning("model_unload failed", exc_info=True)
+            logger.warning("registry-based unload failed", exc_info=True)
+
+        if not released:
+            try:
+                patcher.model_unload(unpatch_weights=True)
+            except Exception:
+                logger.warning("model_unload failed", exc_info=True)
+
         comfy.model_management.soft_empty_cache()
         return
     patcher.model_unload()

@@ -187,12 +187,20 @@ class BluePixelEngine:
         sigma_image_seq_len: Optional[int] = None,
         progress_cb: Optional[Callable[[int, int], None]] = None,
         interrupt_check: INTERRUPT_CHECK = _default_interrupt,
+        stage_cb: Optional[Callable[[str], None]] = None,
     ):
         """Generate one edited image for a single (image, instruction) pair.
 
         image: ComfyUI IMAGE tensor (B,H,W,C) [0,1] — batch item 0 is used.
+        stage_cb: optional callback invoked with a stage name right before that
+        stage starts ("text_encode" | "image_encode" | "denoise" | "decode"),
+        so a host can load/unload only the components that stage needs.
         Returns (comfy_image, metadata_dict).
         """
+        def _stage(name):
+            if stage_cb is not None:
+                stage_cb(name)
+
         validate_mu_combo(mu_mode)
         denoising_step_list = denoising_step_list or DEFAULT_DENOISING_STEPS
         bucket_set = bucket_set or self.bucket_set
@@ -204,6 +212,7 @@ class BluePixelEngine:
         first = comfy_image_to_tensor(image[:1])
         pil = tensor_to_pil(first)
 
+        _stage("text_encode")
         sched_cfg = self.scheduler.config
         if isinstance(sched_cfg, dict):
             sched_cfg = _DictConfig(sched_cfg)
@@ -218,6 +227,7 @@ class BluePixelEngine:
         )
 
         bucket = bucket_set.select(*pil.size)
+        _stage("image_encode")
         ref_tokens, ref_ids = self._encode_ref_image(pil, bucket)
         interrupt_check()
 
@@ -235,6 +245,7 @@ class BluePixelEngine:
         self.last_mu_mode = mu_mode
         self.last_image_seq_len = effective_seq_len
 
+        _stage("denoise")
         self.x0_scheduler.set_timesteps(sigmas=sigmas, device=self.device)
         self.x0_scheduler._step_index = 0
 
@@ -270,6 +281,7 @@ class BluePixelEngine:
             if progress_cb is not None:
                 progress_cb(idx + 1, actual_steps)
 
+        _stage("decode")
         output = self._decode(x0)
         metadata = {
             "width": bucket["width"],

@@ -117,7 +117,7 @@ def _resolve_model_dir(model_name: str) -> str:
 def validate_and_load(
     model_name: str,
     precision: str = "bf16",
-    vae_tiling: bool = False,
+    vae_tiling: bool = True,
     reload_token: str = "",
     device=None,
     base_model_name: str = "",

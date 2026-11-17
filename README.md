@@ -131,6 +131,27 @@ Batch IMAGE 逐张顺序处理（每张派生 seed = base_seed + index）。每�
 两份工作流都是 `BluePixel Pipeline Loader → Load Image → BluePixel Generate → Save Image`，
 默认参数：4 步、`cps_eta=0.9`、`mu_mode=training`、4K bucket 面积。
 
+## 显存占用
+
+组件按阶段加载：只有当前阶段需要的组件驻留在显存中，阶段之间自动卸载。
+
+| 阶段 | 驻留组件 |
+| --- | --- |
+| 文本编码 | Qwen3（bf16，~16.4GB） |
+| 参考图编码 | DCAE（fp32 + tiling） |
+| 去噪 | transformer（INT8 ~9.1GB / FP32 ~36GB） |
+| 解码 | DCAE（fp32 + tiling） |
+
+实测 4K（3072×5440）峰值：
+
+| 模型 | 峰值显存 | 耗时 |
+| --- | --- | --- |
+| INT8 | **~20GB** | ~60s |
+| FP32 | ~47GB | ~50s |
+
+运行结束后显存会完整归还（实测释放 19.2GB，残留 1.1GB）。
+`vae_tiling` 默认开启（4K 不切块的 VAE 编码单独就要 21.6GB）。
+
 ## 数值对齐（已验证）
 
 与参考实现 `bluepixel/vins_infer.py`（FluxKleinPipeline）真实权重逐阶段对齐（详见 `VERIFICATION.md`）：

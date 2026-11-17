@@ -22,6 +22,7 @@ from .runtime.managed_models import (
     COMFY_AVAILABLE,
     interrupt_if_requested,
     load_patcher_gpu,
+    unload_patcher,
 )
 
 logger = logging.getLogger("bluepixel.nodes")
@@ -50,7 +51,7 @@ class BluePixelPipelineLoader:
                 "base_model_name": (paths,),
                 "precision": (["bf16", "fp16", "fp32"], {"default": "bf16"}),
                 "int8_compute_dtype": (["fp32", "bf16"], {"default": "fp32"}),
-                "vae_tiling": ("BOOLEAN", {"default": False}),
+                "vae_tiling": ("BOOLEAN", {"default": True}),
                 "reload_token": ("STRING", {"default": ""}),
             }
         }
@@ -107,7 +108,9 @@ class BluePixelGenerate:
         "BluePixel-Turbo image editing (edit-only, no CFG). Resolution comes "
         "from the bucket system with a 4096x4096 area budget; small inputs "
         "are BICUBIC resize+crop to the bucket before inference. Supports "
-        "FP32 and INT8 models (INT8 transformer ~9GB weights, ~20GB VRAM)."
+        "FP32 and INT8 models (INT8 transformer ~9GB weights). Components are "
+        "loaded per stage, so only the one being used occupies VRAM: 4K INT8 "
+        "peaks around 20GB instead of ~50GB."
     )
 
     def generate(self, pipe, image, prompt, seed, steps, cps_eta, mu_mode):
@@ -118,16 +121,33 @@ class BluePixelGenerate:
                 "input is missing. Text-to-image is not supported."
             )
 
-        # ---- load all components onto GPU through ComfyUI memory manager
-        load_patcher_gpu([pipe["patchers"]["text_encoder"]])
-        load_patcher_gpu([pipe["patchers"]["transformer"]])
-        load_patcher_gpu([pipe["patchers"]["vae"]])
-
         if COMFY_AVAILABLE:
             import comfy.model_management
             device = comfy.model_management.get_torch_device()
         else:
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        # ---- staged loading: only the component a stage needs stays resident.
+        # This keeps the 4K INT8 peak around ~18GB instead of ~50GB when all
+        # three components would be loaded at once.
+        patchers = pipe["patchers"]
+        stage_owner = {
+            "text_encode": "text_encoder",
+            "image_encode": "vae",
+            "denoise": "transformer",
+            "decode": "vae",
+        }
+        resident = {"name": None}
+
+        def ensure_stage(stage: str) -> None:
+            want = stage_owner[stage]
+            if resident["name"] == want:
+                return
+            load_patcher_gpu([patchers[want]])
+            prev = resident["name"]
+            if prev is not None and prev != want:
+                unload_patcher(patchers[prev])
+            resident["name"] = want
 
         engine = BluePixelEngine(
             transformer=pipe["transformer"],
@@ -151,7 +171,12 @@ class BluePixelGenerate:
             cps_eta=cps_eta,
             mu_mode=mu_mode,
             interrupt_check=interrupt_if_requested,
+            stage_cb=ensure_stage,
         )
+        # release the last resident component so the next node/model can use VRAM
+        if resident["name"] is not None:
+            unload_patcher(patchers[resident["name"]])
+            resident["name"] = None
 
         metadata.update({
             "model_path": pipe["model_path"],

@@ -37,7 +37,7 @@
         "BluePixel-Turbo",
         "bf16",
         "fp32",
-        false,
+        true,
         ""
       ]
     },
